@@ -34,7 +34,9 @@
 5. git add, commit, push
 
 ## 현재 프로젝트 목록
+- `jokim to prison` — 추가일: 2026-04-07
 (ingest 실행 후 여기에 자동 기록)
 
 ## DB 스키마
+- `jokim to prison` — 추가일: 2026-04-07
 (ingest 실행 후 여기에 자동 기록)

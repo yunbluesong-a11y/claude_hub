@@ -152,7 +152,7 @@ def normalize_df(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     for col in df.columns:
         if is_date_column(df[col]):
-            parsed = pd.to_datetime(df[col], errors="coerce", infer_datetime_format=True)
+            parsed = pd.to_datetime(df[col], errors="coerce")
             df[col] = parsed.dt.strftime("%Y-%m-%d").where(parsed.notna(), other=None)
         elif is_amount_column(col, df[col]):
             cleaned = df[col].astype(str).str.replace(r"[₩\$¥€,\s]", "", regex=True)
