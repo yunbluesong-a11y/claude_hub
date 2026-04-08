@@ -20,3 +20,13 @@
 
 - 프로젝트별 폴더 분리: projects/{name}/summaries/, projects/{name}/index/
 - memory/ 파일은 세션 간 연속성 유지용 — 간결하게 유지 (각 100줄 이내)
+- sessions/ 에 세션 보고서 남김 — 다음 세션에서 맥락 이어받기용
+
+## 교훈 (2026-04-08)
+
+- **은행 엑셀 헤더 탐지**: "번호" 키워드 사용 시 "계좌번호" 행에 오매칭 → "No." 정확 매칭 필요
+- **pandas infer_datetime_format**: deprecated 파라미터, 최신 버전에서 제거 필요
+- **빈 컬럼명**: SQLite 저장 시 빈/NaN 컬럼명 → "col_N"으로 정규화 필수
+- **금액 교차대조**: ±7일 window로 먼저 시도, 실패 시 키워드 변형 검색 (예: 재규어랜드로버 → JAGUAR LA)
+- **sqlite journal 잔존**: disk I/O error 발생 시 journal 파일 삭제 후 재시도
+- **Windows 한글 경로**: CMD 대신 Git Bash, 경로는 forward slash (C:/...) 사용
