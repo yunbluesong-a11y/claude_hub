@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 820" font-family="Malgun Gothic, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#C0392B"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2471A3"/>
+    </marker>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <linearGradient id="grad-green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#27AE60"/>
+      <stop offset="100%" stop-color="#1E8449"/>
+    </linearGradient>
+    <linearGradient id="grad-blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2980B9"/>
+      <stop offset="100%" stop-color="#1A5276"/>
+    </linearGradient>
+    <linearGradient id="grad-red" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E74C3C"/>
+      <stop offset="100%" stop-color="#922B21"/>
+    </linearGradient>
+    <linearGradient id="grad-orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E67E22"/>
+      <stop offset="100%" stop-color="#A04000"/>
+    </linearGradient>
+    <linearGradient id="grad-purple" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8E44AD"/>
+      <stop offset="100%" stop-color="#6C3483"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="820" fill="#F8F9FA" rx="12"/>
+
+  <!-- Title -->
+  <text x="550" y="38" text-anchor="middle" font-size="22" font-weight="bold" fill="#1B2631">법무법인 태율 — 자금 유용 흐름도</text>
+  <text x="550" y="58" text-anchor="middle" font-size="12" fill="#7F8C8D">고소인 송명욱 vs 피고소인 김상균·조대제 | 2016.09 ~ 2019.02</text>
+
+  <!-- ============ STEP 1: 수임료 발생 (고소인) ============ -->
+  <text x="60" y="100" font-size="14" font-weight="bold" fill="#27AE60">STEP 1. 수임료 유입 (적법)</text>
+
+  <!-- 송명욱 (고소인) -->
+  <rect x="60" y="115" width="220" height="75" rx="10" fill="url(#grad-green)" filter="url(#shadow)"/>
+  <text x="170" y="142" text-anchor="middle" font-size="14" font-weight="bold" fill="white">고소인 송명욱</text>
+  <text x="170" y="160" text-anchor="middle" font-size="11" fill="#D5F5E3">구성원 변호사</text>
+  <text x="170" y="176" text-anchor="middle" font-size="10" fill="#D5F5E3">수임사건 수행 → 매출 발생</text>
+
+  <!-- 송명욱 관리계좌 -->
+  <rect x="370" y="115" width="240" height="75" rx="10" fill="url(#grad-blue)" filter="url(#shadow)"/>
+  <text x="490" y="138" text-anchor="middle" font-size="13" font-weight="bold" fill="white">송명욱 관리계좌</text>
+  <text x="490" y="156" text-anchor="middle" font-size="10" fill="#AED6F1">하나은행 22991002022504</text>
+  <text x="490" y="172" text-anchor="middle" font-size="10" fill="#AED6F1">예금주: 법무법인 태율</text>
+
+  <!-- 메인계좌 -->
+  <rect x="720" y="115" width="240" height="75" rx="10" fill="url(#grad-blue)" filter="url(#shadow)"/>
+  <text x="840" y="138" text-anchor="middle" font-size="13" font-weight="bold" fill="white">법인 메인계좌</text>
+  <text x="840" y="156" text-anchor="middle" font-size="10" fill="#AED6F1">하나은행 22991001907204</text>
+  <text x="840" y="172" text-anchor="middle" font-size="10" fill="#AED6F1">예금주: 법무법인 태율</text>
+
+  <!-- Arrow: 송명욱 → 관리계좌 -->
+  <line x1="280" y1="152" x2="365" y2="152" stroke="#27AE60" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="323" y="144" text-anchor="middle" font-size="9" fill="#27AE60">수임료</text>
+  <text x="323" y="164" text-anchor="middle" font-size="9" fill="#27AE60">입금</text>
+
+  <!-- Arrow: 관리계좌 → 메인 -->
+  <line x1="610" y1="152" x2="715" y2="152" stroke="#2471A3" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="663" y="140" text-anchor="middle" font-size="10" font-weight="bold" fill="#2471A3">160,769,931원</text>
+  <text x="663" y="155" text-anchor="middle" font-size="9" fill="#2471A3">분담금·보험료·부가세</text>
+  <text x="663" y="168" text-anchor="middle" font-size="9" fill="#2471A3">61건 (2016.10~2018.11)</text>
+
+  <!-- ============ STEP 2: 자금 유출 (피고소인) ============ -->
+  <text x="60" y="225" font-size="14" font-weight="bold" fill="#C0392B">STEP 2. 자금 유출 (횡령)</text>
+
+  <!-- 조대제 관리계좌 -->
+  <rect x="370" y="240" width="240" height="75" rx="10" fill="url(#grad-orange)" filter="url(#shadow)"/>
+  <text x="490" y="263" text-anchor="middle" font-size="13" font-weight="bold" fill="white">조대제 관리계좌</text>
+  <text x="490" y="281" text-anchor="middle" font-size="10" fill="#FDEBD0">하나은행 22991001751404</text>
+  <text x="490" y="297" text-anchor="middle" font-size="10" fill="#FDEBD0">예금주: 법무법인 태율</text>
+
+  <!-- 김상균 관리계좌 -->
+  <rect x="370" y="340" width="240" height="75" rx="10" fill="url(#grad-orange)" filter="url(#shadow)"/>
+  <text x="490" y="363" text-anchor="middle" font-size="13" font-weight="bold" fill="white">김상균 관리계좌</text>
+  <text x="490" y="381" text-anchor="middle" font-size="10" fill="#FDEBD0">하나은행 22991001951104</text>
+  <text x="490" y="397" text-anchor="middle" font-size="10" fill="#FDEBD0">예금주: 법무법인 태율</text>
+
+  <!-- Arrow: 메인 → 조대제 -->
+  <path d="M 720 170 Q 660 210 610 265" stroke="#C0392B" stroke-width="2.5" fill="none" marker-end="url(#arrow-red)"/>
+  <text x="650" y="220" text-anchor="middle" font-size="9" fill="#C0392B">법인자금 이체</text>
+
+  <!-- Arrow: 메인 → 김상균 -->
+  <path d="M 720 180 Q 650 310 610 365" stroke="#C0392B" stroke-width="2.5" fill="none" marker-end="url(#arrow-red)"/>
+
+  <!-- ============ 개인계좌들 ============ -->
+  <!-- 조대제 개인계좌 1 -->
+  <rect x="50" y="240" width="250" height="35" rx="6" fill="#FADBD8" stroke="#E74C3C" stroke-width="1.5"/>
+  <text x="175" y="255" text-anchor="middle" font-size="10" fill="#922B21">하나 15091013175307 (조대제 명의)</text>
+  <text x="175" y="268" text-anchor="middle" font-size="9" font-weight="bold" fill="#C0392B">8건 22,100,000원</text>
+
+  <rect x="50" y="282" width="250" height="35" rx="6" fill="#FADBD8" stroke="#E74C3C" stroke-width="1.5"/>
+  <text x="175" y="297" text-anchor="middle" font-size="10" fill="#922B21">하나 24391029794207 (조대제 명의)</text>
+  <text x="175" y="310" text-anchor="middle" font-size="9" font-weight="bold" fill="#C0392B">2건 14,500,000원</text>
+
+  <rect x="50" y="324" width="250" height="35" rx="6" fill="#FADBD8" stroke="#E74C3C" stroke-width="1.5"/>
+  <text x="175" y="339" text-anchor="middle" font-size="10" fill="#922B21">하나 20591014227907 (조대제 명의)</text>
+  <text x="175" y="352" text-anchor="middle" font-size="9" font-weight="bold" fill="#C0392B">2건 6,500,000원</text>
+
+  <!-- 김상균 개인계좌 -->
+  <rect x="50" y="380" width="250" height="35" rx="6" fill="#FADBD8" stroke="#E74C3C" stroke-width="1.5"/>
+  <text x="175" y="395" text-anchor="middle" font-size="10" fill="#922B21">하나 24391029728707 (김상균 명의)</text>
+  <text x="175" y="408" text-anchor="middle" font-size="9" font-weight="bold" fill="#C0392B">8건 65,916,360원</text>
+
+  <rect x="50" y="422" width="250" height="35" rx="6" fill="#FADBD8" stroke="#E74C3C" stroke-width="1.5"/>
+  <text x="175" y="437" text-anchor="middle" font-size="10" fill="#922B21">국민 84880100012716 (김상균 명의)</text>
+  <text x="175" y="450" text-anchor="middle" font-size="9" font-weight="bold" fill="#C0392B">5건 25,002,000원</text>
+
+  <!-- Arrows: 관리계좌 → 개인 -->
+  <line x1="370" y1="265" x2="305" y2="257" stroke="#C0392B" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+  <line x1="370" y1="270" x2="305" y2="299" stroke="#C0392B" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+  <line x1="370" y1="278" x2="305" y2="341" stroke="#C0392B" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+
+  <line x1="370" y1="370" x2="305" y2="397" stroke="#C0392B" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+  <line x1="370" y1="380" x2="305" y2="439" stroke="#C0392B" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+
+  <!-- Labels on arrows -->
+  <text x="340" y="247" text-anchor="middle" font-size="8" fill="#C0392B">가수금반환</text>
+  <text x="340" y="393" text-anchor="middle" font-size="8" fill="#C0392B">가수금반환</text>
+
+  <!-- ============ STEP 3: 개인소비 ============ -->
+  <text x="720" y="225" font-size="14" font-weight="bold" fill="#E67E22">STEP 2-B. 법인카드 개인소비</text>
+
+  <!-- 유흥/리스/대리운전 boxes -->
+  <rect x="720" y="240" width="230" height="50" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="835" y="260" text-anchor="middle" font-size="11" font-weight="bold" fill="#7D6608">차량 리스대금 (체크카드/자동이체)</text>
+  <text x="835" y="278" text-anchor="middle" font-size="10" fill="#B7950B">조대제 29.3M + 김상균 58.8M = 88.1M</text>
+
+  <rect x="720" y="300" width="230" height="50" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="835" y="320" text-anchor="middle" font-size="11" font-weight="bold" fill="#7D6608">유흥업소 (심야 체크카드)</text>
+  <text x="835" y="338" text-anchor="middle" font-size="10" fill="#B7950B">조대제 30.2M + 김상균 22.4M = 52.6M</text>
+
+  <rect x="720" y="360" width="230" height="50" rx="8" fill="#FEF9E7" stroke="#F39C12" stroke-width="1.5"/>
+  <text x="835" y="380" text-anchor="middle" font-size="11" font-weight="bold" fill="#7D6608">대리운전 (488건)</text>
+  <text x="835" y="398" text-anchor="middle" font-size="10" fill="#B7950B">조대제 2.1M + 김상균 7.5M = 9.5M</text>
+
+  <!-- ============ STEP 3: 회계 조작 ============ -->
+  <text x="60" y="500" font-size="14" font-weight="bold" fill="#8E44AD">STEP 3. 회계장부 조작 (범행 은폐)</text>
+
+  <!-- 회계조작 박스 -->
+  <rect x="60" y="515" width="500" height="160" rx="10" fill="#F4ECF7" stroke="#8E44AD" stroke-width="2" filter="url(#shadow)"/>
+
+  <text x="80" y="540" font-size="12" font-weight="bold" fill="#6C3483">2016년 — 가지급금 [134] 거래처 원장</text>
+  <text x="80" y="558" font-size="10" fill="#6C3483">10-11 송명욱 입금 24,800,000원 → 10-27 "가수금반환" 25,000,000원 처리</text>
+  <text x="80" y="573" font-size="10" fill="#C0392B" font-weight="bold">→ 송명욱이 넣은 돈을 마치 '빌려준 돈 회수'로 조작</text>
+
+  <text x="80" y="598" font-size="12" font-weight="bold" fill="#6C3483">2017년 — 가수금 [257] 거래처 원장</text>
+  <text x="80" y="616" font-size="10" fill="#6C3483">매월 "개인경비" 차변 누적, 12-28 "송명욱 가지급금" 70,000,000원 차변 처리</text>
+  <text x="80" y="631" font-size="10" fill="#C0392B" font-weight="bold">→ 실제 자금이동 없이 장부상 7천만원 채무 허위 생성</text>
+
+  <text x="80" y="656" font-size="12" font-weight="bold" fill="#6C3483">2018년 — 단기차입금 [260] 거래처 원장</text>
+  <text x="80" y="671" font-size="10" fill="#C0392B" font-weight="bold">→ "단기채권으로대체(법인)" 수시 처리 = 판례와 동일한 가수금→단기차입금 전환 수법</text>
+
+  <!-- 판례 참조 박스 -->
+  <rect x="600" y="515" width="360" height="160" rx="10" fill="#EBF5FB" stroke="#2471A3" stroke-width="2" filter="url(#shadow)"/>
+  <text x="780" y="540" text-anchor="middle" font-size="12" font-weight="bold" fill="#1A5276">참조 판례</text>
+  <text x="780" y="558" text-anchor="middle" font-size="11" fill="#1A5276">서울중앙지방법원 2021고합1149</text>
+  <text x="620" y="580" font-size="10" fill="#1A5276">대표이사가 회사 가수금 43억을 허위로</text>
+  <text x="620" y="596" font-size="10" fill="#1A5276">단기차입금으로 전환, 차명계좌 이용</text>
+  <text x="620" y="612" font-size="10" font-weight="bold" fill="#C0392B">→ 징역 3년 6개월 선고</text>
+  <text x="620" y="636" font-size="10" fill="#1A5276">"사용처 증빙 미제시·합리적 설명 불가 시</text>
+  <text x="620" y="652" font-size="10" fill="#1A5276"> 불법영득 의사로 추단" (대법원 2003도2807)</text>
+  <text x="620" y="672" font-size="10" font-weight="bold" fill="#C0392B">→ 본 사건과 구조적으로 동일</text>
+
+  <!-- ============ 피해 총액 요약 ============ -->
+  <rect x="60" y="710" width="900" height="90" rx="10" fill="#1B2631" filter="url(#shadow)"/>
+  <text x="510" y="740" text-anchor="middle" font-size="16" font-weight="bold" fill="white">횡령 피해금액 총괄</text>
+
+  <text x="150" y="770" text-anchor="middle" font-size="12" fill="#F39C12">가수금·대여금</text>
+  <text x="150" y="788" text-anchor="middle" font-size="14" font-weight="bold" fill="white">141,405,860원</text>
+
+  <text x="350" y="770" text-anchor="middle" font-size="12" fill="#F39C12">차량 리스대금</text>
+  <text x="350" y="788" text-anchor="middle" font-size="14" font-weight="bold" fill="white">93,012,520원</text>
+
+  <text x="540" y="770" text-anchor="middle" font-size="12" fill="#F39C12">유흥업소</text>
+  <text x="540" y="788" text-anchor="middle" font-size="14" font-weight="bold" fill="white">52,591,200원</text>
+
+  <text x="700" y="770" text-anchor="middle" font-size="12" fill="#F39C12">대리운전</text>
+  <text x="700" y="788" text-anchor="middle" font-size="14" font-weight="bold" fill="white">9,549,900원</text>
+
+  <line x1="790" y1="750" x2="790" y2="795" stroke="#F39C12" stroke-width="1"/>
+  <text x="870" y="765" text-anchor="middle" font-size="12" fill="#F39C12">합 계</text>
+  <text x="870" y="790" text-anchor="middle" font-size="18" font-weight="bold" fill="#E74C3C">296,559,480원</text>
+</svg>

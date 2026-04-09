@@ -1,21 +1,24 @@
 """
-ingest.py — 통합 전처리 진입점
-================================
-raw/{project-name}/ 안의 파일을 확장자별로 분류하여
+ingest.py — 통합 전처리 진입점 (v2)
+====================================
+raw/{client_id}/{case_slug}/ 안의 파일을 확장자별로 분류하여
 적절한 전처리 스크립트를 호출하고 결과를 정리합니다.
 
 사용법:
-    python scripts/ingest.py {project-name}
+    python scripts/ingest.py {client_id}/{case_slug}
+
+예시:
+    python scripts/ingest.py yumyunggeun/honor-defamation
 
 동작:
-1. raw/{project-name}/ 내 파일 확장자별 분류
-2. sheets.txt 있으면 → sheets_to_sqlite.py (구글시트)
-3. 엑셀/CSV → excel_to_sqlite.py
-4. PDF     → pdf_to_chunks.py
-5. 이미지   → image_catalog.py
-6. 처리 결과 리포트 출력
-7. projects/{project-name}/README.md 자동 생성 (없을 경우)
-8. 최상위 CLAUDE.md의 프로젝트 목록 및 DB 스키마 자동 업데이트
+1. raw/{client_id}/{case_slug}/ 내 파일 확장자별 분류
+2. 엑셀/CSV → excel_to_sqlite.py → db/{client_id}_{case_slug}.sqlite + master.sqlite 메타
+3. PDF     → pdf_to_chunks.py → summaries/ + master.sqlite pages
+4. docx    → docx_to_summary.py → summaries/ + master.sqlite pages
+5. 이미지   → image_catalog.py → index/ + master.sqlite image_ocr
+6. 영상     → 영상메모 템플릿 생성
+7. master.sqlite evidence 테이블에 파일 자동 등록
+8. 처리 결과 리포트 출력
 """
 
 import sys
@@ -23,78 +26,153 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 
-# 스크립트 디렉토리를 path에 추가
 sys.path.insert(0, str(Path(__file__).parent))
 
 EXCEL_EXTENSIONS = {".xlsx", ".xls", ".csv"}
 PDF_EXTENSIONS = {".pdf"}
+DOCX_EXTENSIONS = {".docx", ".doc"}
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".heic", ".heif"}
+VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv"}
+
+
+def parse_path(path_arg: str) -> tuple:
+    """'client_id/case_slug' 파싱"""
+    parts = path_arg.strip("/").split("/")
+    if len(parts) != 2:
+        print(f"[ERROR] 형식: client_id/case_slug (입력: {path_arg})")
+        sys.exit(1)
+    return parts[0], parts[1]
 
 
 def classify_files(raw_dir: Path) -> dict:
-    """파일을 확장자별로 분류"""
-    categories = {"sheets": False, "excel": [], "pdf": [], "image": [], "other": []}
-
-    # sheets.txt 존재 여부 확인
-    if (raw_dir / "sheets.txt").exists():
-        categories["sheets"] = True
-
-    for f in raw_dir.iterdir():
+    """파일을 확장자별로 분류 (하위 폴더 포함)"""
+    categories = {"excel": [], "pdf": [], "docx": [], "image": [], "video": [], "other": []}
+    for f in raw_dir.rglob("*"):
         if f.name.startswith(".") or not f.is_file():
             continue
-        if f.name == "sheets.txt":
-            continue  # sheets.txt는 별도 처리
         ext = f.suffix.lower()
         if ext in EXCEL_EXTENSIONS:
             categories["excel"].append(f)
         elif ext in PDF_EXTENSIONS:
             categories["pdf"].append(f)
+        elif ext in DOCX_EXTENSIONS:
+            categories["docx"].append(f)
         elif ext in IMAGE_EXTENSIONS:
             categories["image"].append(f)
+        elif ext in VIDEO_EXTENSIONS:
+            categories["video"].append(f)
         else:
             categories["other"].append(f)
     return categories
 
 
-def run_sheets(project_name: str) -> list:
-    from sheets_to_sqlite import ingest_project
-    return ingest_project(project_name)
+def register_evidence_auto(client_id: str, case_slug: str, categories: dict, base: Path):
+    """master.sqlite evidence 테이블에 파일 자동 등록"""
+    db_path = base / "db" / "master.sqlite"
+    if not db_path.exists():
+        return
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    type_map = {
+        "excel": "xlsx", "pdf": "pdf", "docx": "docx",
+        "image": "image", "video": "video",
+    }
+    for cat, files in categories.items():
+        if cat == "other":
+            continue
+        ft = type_map.get(cat, cat)
+        for f in files:
+            rel = str(f.relative_to(base))
+            existing = c.execute(
+                "SELECT id FROM evidence WHERE client_id=? AND case_slug=? AND file_path=?",
+                (client_id, case_slug, rel)
+            ).fetchone()
+            if not existing:
+                c.execute(
+                    "INSERT INTO evidence (client_id, case_slug, label, description, file_type, file_path) VALUES (?,?,?,?,?,?)",
+                    (client_id, case_slug, f"(미분류)", f.name, ft, rel)
+                )
+    conn.commit()
+    conn.close()
 
 
-def run_excel(project_name: str) -> list:
-    from excel_to_sqlite import ingest_project
-    return ingest_project(project_name)
+def create_video_memo(video_path: Path, client_id: str, case_slug: str, project_dir: Path):
+    """영상메모 템플릿 생성"""
+    memo_dir = project_dir / "index"
+    memo_dir.mkdir(parents=True, exist_ok=True)
+    memo_path = memo_dir / f"{video_path.stem}_영상메모.md"
+    if memo_path.exists():
+        return
+
+    stat = video_path.stat()
+    size_mb = stat.st_size / (1024 * 1024)
+
+    content = f"""# 영상메모: {video_path.name}
+# 사건: {client_id}/{case_slug}
+# 생성일: {datetime.now().strftime("%Y-%m-%d")}
+
+## 영상 정보
+- 파일: {video_path.name}
+- 크기: {size_mb:.1f} MB
+- URL: (온라인 영상인 경우 URL 기입)
+
+## 타임스탬프별 내용
+| 시간 | 내용 | 비고 |
+|------|------|------|
+| 0:00~ | | |
+| | | |
+
+## 핵심 구간
+-
+
+## 법적 관련성
+-
+"""
+    memo_path.write_text(content, encoding="utf-8")
+    print(f"    영상메모 템플릿 생성: {memo_path.name}")
 
 
-def run_pdf(project_name: str) -> list:
-    from pdf_to_chunks import ingest_project
-    return ingest_project(project_name)
+def run_excel(client_id: str, case_slug: str) -> list:
+    from excel_to_sqlite import ingest_case
+    return ingest_case(client_id, case_slug)
 
 
-def run_image(project_name: str) -> list:
-    from image_catalog import ingest_project
-    return ingest_project(project_name)
+def run_pdf(client_id: str, case_slug: str) -> list:
+    from pdf_to_chunks import ingest_case
+    return ingest_case(client_id, case_slug)
 
 
-def ensure_readme(project_name: str, categories: dict):
-    """projects/{name}/README.md 가 없으면 기본 템플릿 생성"""
-    base = Path(__file__).parent.parent
-    readme_path = base / "projects" / project_name / "README.md"
+def run_docx(client_id: str, case_slug: str) -> list:
+    try:
+        from docx_to_summary import ingest_case
+        return ingest_case(client_id, case_slug)
+    except ImportError as e:
+        print(f"  [SKIP] docx 처리 의존성 없음: {e}")
+        return []
+
+
+def run_image(client_id: str, case_slug: str) -> list:
+    from image_catalog import ingest_case
+    return ingest_case(client_id, case_slug)
+
+
+def ensure_readme(client_id: str, case_slug: str, categories: dict, base: Path):
+    """사건 README.md 가 없으면 기본 템플릿 생성"""
+    readme_path = base / "projects" / client_id / case_slug / "README.md"
     readme_path.parent.mkdir(parents=True, exist_ok=True)
     if readme_path.exists():
         return
 
     file_list = []
-    if categories["sheets"]:
-        file_list.append("- `sheets.txt` (구글시트 URL 목록)")
-    for cat in ("excel", "pdf", "image", "other"):
+    for cat in ("excel", "pdf", "docx", "image", "video", "other"):
         for f in categories.get(cat, []):
             file_list.append(f"- `{f.name}` ({cat})")
 
-    content = f"""# {project_name}
+    content = f"""# {client_id}/{case_slug}
 
 ## 프로젝트 목적
-(여기에 이 분석 프로젝트의 목적을 작성하세요)
+(여기에 이 사건의 분석 목적을 작성하세요)
 
 ## 소스 파일
 {chr(10).join(file_list) if file_list else "- (없음)"}
@@ -103,157 +181,96 @@ def ensure_readme(project_name: str, categories: dict):
 {datetime.now().strftime("%Y-%m-%d")}
 
 ## 데이터 접근 방법
-- 구글시트/엑셀/CSV: `db/{project_name}.sqlite` 에 SQL 쿼리
-- PDF: `projects/{project_name}/summaries/` 요약본 먼저 확인
-- 이미지: `projects/{project_name}/index/image_catalog.json` 참조
+- 엑셀/CSV: `db/{client_id}_{case_slug}.sqlite` 에 SQL 쿼리
+- PDF/docx: `projects/{client_id}/{case_slug}/summaries/` 요약본 먼저 확인
+- 이미지: `projects/{client_id}/{case_slug}/index/image_catalog.json` 참조
+- 영상: `projects/{client_id}/{case_slug}/index/*_영상메모.md` 참조
 """
     readme_path.write_text(content, encoding="utf-8")
-    print(f"  README.md 생성: projects/{project_name}/README.md")
+    print(f"  README.md 생성: projects/{client_id}/{case_slug}/README.md")
 
 
-def get_db_schema(project_name: str) -> dict:
-    """SQLite DB에서 테이블 스키마 추출"""
-    base = Path(__file__).parent.parent
-    db_path = base / "db" / f"{project_name}.sqlite"
-    if not db_path.exists():
-        return {}
-    schema = {}
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [row[0] for row in cursor.fetchall()]
-    for table in tables:
-        cursor.execute(f"PRAGMA table_info({table})")
-        cols = [(row[1], row[2]) for row in cursor.fetchall()]
-        cursor.execute(f"SELECT COUNT(*) FROM [{table}]")
-        row_count = cursor.fetchone()[0]
-        schema[table] = {"columns": cols, "row_count": row_count}
-    conn.close()
-    return schema
-
-
-def update_claude_md(project_name: str, schema: dict):
-    """최상위 CLAUDE.md 의 프로젝트 목록 및 DB 스키마 섹션 업데이트"""
-    base = Path(__file__).parent.parent
-    claude_md_path = base / "CLAUDE.md"
-    if not claude_md_path.exists():
-        return
-
-    content = claude_md_path.read_text(encoding="utf-8")
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    # 프로젝트 목록 업데이트
-    project_entry = f"- `{project_name}` — 추가일: {today}"
-    if f"`{project_name}`" not in content:
-        content = content.replace(
-            "(ingest 실행 후 여기에 자동 기록)",
-            f"{project_entry}\n(ingest 실행 후 여기에 자동 기록)"
-        )
-
-    # DB 스키마 업데이트
-    if schema:
-        schema_lines = [f"\n### {project_name} (`db/{project_name}.sqlite`)"]
-        for table, info in schema.items():
-            cols_str = ", ".join(f"{c[0]}({c[1]})" for c in info["columns"][:8])
-            if len(info["columns"]) > 8:
-                cols_str += f" ... (+{len(info['columns'])-8}개)"
-            schema_lines.append(f"- `{table}`: {info['row_count']}행 | {cols_str}")
-        schema_block = "\n".join(schema_lines)
-        if f"### {project_name}" not in content:
-            content = content.replace(
-                "(ingest 실행 후 여기에 자동 기록)\n```",
-                f"(ingest 실행 후 여기에 자동 기록)\n{schema_block}\n```"
-            )
-
-    claude_md_path.write_text(content, encoding="utf-8")
-    print(f"  CLAUDE.md 업데이트 완료")
-
-
-def print_report(project_name: str, categories: dict, results: dict):
-    """처리 결과 리포트 출력"""
-    file_total = sum(len(v) for k, v in categories.items() if isinstance(v, list))
-    sheets_count = 1 if categories["sheets"] else 0
-
+def print_report(client_id: str, case_slug: str, categories: dict, results: dict):
+    """처리 결과 리포트"""
     print("\n" + "=" * 50)
-    print(f"  ingest 완료: {project_name}")
+    print(f"  ingest 완료: {client_id}/{case_slug}")
     print("=" * 50)
-    print(f"  ├─ 구글시트 : {'sheets.txt 처리됨' if categories['sheets'] else '없음'}")
-    print(f"  ├─ 엑셀/CSV : {len(categories['excel'])}개")
-    print(f"  ├─ PDF      : {len(categories['pdf'])}개")
-    print(f"  ├─ 이미지   : {len(categories['image'])}개")
-    print(f"  └─ 기타     : {len(categories['other'])}개")
-    if categories["other"]:
-        for f in categories["other"]:
-            print(f"       - {f.name} (미처리)")
+    for cat, label in [("excel","엑셀/CSV"), ("pdf","PDF"), ("docx","docx"),
+                       ("image","이미지"), ("video","영상"), ("other","기타")]:
+        cnt = len(categories.get(cat, []))
+        print(f"  ├─ {label:8s} : {cnt}개")
     print()
-    if results.get("sheets"):
-        print(f"  구글시트 → {len(results['sheets'])}개 시트 → db/{project_name}.sqlite")
     if results.get("excel"):
-        print(f"  엑셀/CSV  → {len(results['excel'])}개 테이블 → db/{project_name}.sqlite")
+        print(f"  엑셀/CSV  → {len(results['excel'])}개 테이블 → db/{client_id}_{case_slug}.sqlite")
     if results.get("pdf"):
-        print(f"  PDF 요약  → {sum(r['chunks'] for r in results['pdf'])}개 청크 → projects/{project_name}/summaries/")
+        print(f"  PDF 요약  → {sum(r.get('chunks',0) for r in results['pdf'])}개 청크")
+    if results.get("docx"):
+        print(f"  docx 요약 → {len(results['docx'])}개 문서")
     if results.get("image"):
-        print(f"  이미지    → {len(results['image'])}개 → projects/{project_name}/index/image_catalog.json")
-    print()
-    print(f"  다음 단계: projects/{project_name}/README.md 목적 작성 후 분석 시작")
+        print(f"  이미지    → {len(results['image'])}개 카탈로그")
     print("=" * 50)
 
 
 def main():
     if len(sys.argv) < 2:
-        print("사용법: python scripts/ingest.py {project-name}")
+        print("사용법: python scripts/ingest.py {client_id}/{case_slug}")
+        print("예시:   python scripts/ingest.py yumyunggeun/honor-defamation")
         sys.exit(1)
 
-    project_name = sys.argv[1]
+    client_id, case_slug = parse_path(sys.argv[1])
     base = Path(__file__).parent.parent
-    raw_dir = base / "raw" / project_name
+    raw_dir = base / "raw" / client_id / case_slug
 
     if not raw_dir.exists():
-        print(f"[ERROR] raw/{project_name}/ 디렉토리가 없습니다.")
-        print(f"  먼저 raw/{project_name}/ 폴더를 만들고 파일을 넣어주세요.")
+        print(f"[ERROR] raw/{client_id}/{case_slug}/ 디렉토리가 없습니다.")
+        print(f"  먼저 raw/{client_id}/{case_slug}/ 폴더를 만들고 파일을 넣어주세요.")
         sys.exit(1)
 
     categories = classify_files(raw_dir)
-    has_sheets = categories["sheets"]
-    file_total = sum(len(v) for k, v in categories.items() if isinstance(v, list))
+    project_dir = base / "projects" / client_id / case_slug
+    file_total = sum(len(v) for v in categories.values())
 
-    if not has_sheets and file_total == 0:
-        print(f"[WARNING] raw/{project_name}/ 에 처리할 파일이 없습니다.")
-        print(f"  파일을 넣거나, 구글시트 URL을 sheets.txt에 작성하세요.")
+    if file_total == 0:
+        print(f"[WARNING] raw/{client_id}/{case_slug}/ 에 처리할 파일이 없습니다.")
         sys.exit(0)
 
-    print(f"\n[ingest] 프로젝트: {project_name}")
+    print(f"\n[ingest] {client_id}/{case_slug}")
     sources = []
-    if has_sheets: sources.append("구글시트(sheets.txt)")
-    if categories["excel"]: sources.append(f"엑셀/CSV {len(categories['excel'])}개")
-    if categories["pdf"]: sources.append(f"PDF {len(categories['pdf'])}개")
-    if categories["image"]: sources.append(f"이미지 {len(categories['image'])}개")
+    for cat, label in [("excel","엑셀/CSV"), ("pdf","PDF"), ("docx","docx"),
+                       ("image","이미지"), ("video","영상")]:
+        if categories[cat]:
+            sources.append(f"{label} {len(categories[cat])}개")
     print(f"  소스: {' / '.join(sources)}\n")
 
     results = {}
 
-    if has_sheets:
-        print("─── 구글시트 처리 ───")
-        results["sheets"] = run_sheets(project_name)
-
     if categories["excel"]:
         print("─── 엑셀/CSV 처리 ───")
-        results["excel"] = run_excel(project_name)
+        results["excel"] = run_excel(client_id, case_slug)
 
     if categories["pdf"]:
         print("─── PDF 처리 ───")
-        results["pdf"] = run_pdf(project_name)
+        results["pdf"] = run_pdf(client_id, case_slug)
+
+    if categories["docx"]:
+        print("─── docx 처리 ───")
+        results["docx"] = run_docx(client_id, case_slug)
 
     if categories["image"]:
         print("─── 이미지 처리 ───")
-        results["image"] = run_image(project_name)
+        results["image"] = run_image(client_id, case_slug)
 
-    ensure_readme(project_name, categories)
+    if categories["video"]:
+        print("─── 영상 메모 템플릿 ───")
+        for v in categories["video"]:
+            create_video_memo(v, client_id, case_slug, project_dir)
 
-    schema = get_db_schema(project_name)
-    update_claude_md(project_name, schema)
+    # master.sqlite에 증거 자동 등록
+    register_evidence_auto(client_id, case_slug, categories, base)
 
-    print_report(project_name, categories, results)
+    ensure_readme(client_id, case_slug, categories, base)
+
+    print_report(client_id, case_slug, categories, results)
 
 
 if __name__ == "__main__":

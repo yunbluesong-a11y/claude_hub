@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>claude-hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 0.15s ease-in; }
+        @keyframes fadeIn { from{opacity:0}to{opacity:1} }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .sidebar { transition: transform 0.2s ease; }
+        @media (max-width: 1023px) {
+            .sidebar-left { transform: translateX(-100%); position: fixed; z-index: 55; }
+            .sidebar-left.open { transform: translateX(0); }
+            .sidebar-right { transform: translateX(100%); position: fixed; z-index: 55; right: 0; left: auto; }
+            .sidebar-right.open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen" x-data="app()" x-cloak
+      @dragover.prevent @drop.prevent>
+
+<!-- 로그인 -->
+<template x-if="!authenticated">
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm mx-4">
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">claude-hub</h1>
+        <p class="text-slate-500 text-sm mb-6">의뢰인 · 사건 · 파일</p>
+        <form @submit.prevent="login()">
+            <input type="password" x-model="loginToken" placeholder="접속 토큰"
+                   class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            <p x-show="loginError" class="text-red-500 text-sm mt-2" x-text="loginError"></p>
+            <button type="submit" class="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700">로그인</button>
+        </form>
+    </div>
+</div>
+</template>
+
+<!-- ═══ 메인 3단 레이아웃 ═══ -->
+<template x-if="authenticated">
+<div class="flex min-h-screen">
+
+    <!-- 모바일 오버레이 -->
+    <div x-show="sidebarOpen" @click="sidebarOpen=false" class="fixed inset-0 bg-black/40 z-50 lg:hidden" x-transition.opacity></div>
+    <div x-show="dbSidebarOpen" @click="dbSidebarOpen=false" class="fixed inset-0 bg-black/40 z-50 lg:hidden" x-transition.opacity></div>
+
+    <!-- ▌왼쪽: 네비게이션 ▌ -->
+    <aside class="sidebar-left w-60 bg-white border-r border-slate-200 flex flex-col h-screen fixed top-0 left-0"
+           :class="sidebarOpen && 'open'">
+        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h1 class="text-base font-bold text-slate-800">claude-hub</h1>
+            <button @click="sidebarOpen=false" class="lg:hidden p-1 text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+        <nav class="flex-1 overflow-y-auto px-2 py-2">
+            <template x-for="client in dashboard.clients" :key="client.client_id">
+            <div class="mb-0.5">
+                <button @click="toggleClient(client.client_id)"
+                        class="w-full px-3 py-2 flex items-center justify-between rounded-lg text-sm hover:bg-slate-50"
+                        :class="selectedClient===client.client_id?'bg-blue-50':''">
+                    <span class="font-semibold text-slate-700 truncate" x-text="client.name"></span>
+                    <svg class="w-3 h-3 text-slate-400 transition-transform" :class="openClients[client.client_id]&&'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="openClients[client.client_id]" x-collapse>
+                    <template x-for="c in getCasesForClient(client.client_id)" :key="c.case_slug">
+                    <button @click="openCase(c);sidebarOpen=false"
+                            class="w-full pl-6 pr-3 py-1.5 text-left text-sm rounded-lg truncate transition"
+                            :class="currentCase?.case_slug===c.case_slug&&currentCase?.client_id===c.client_id?'bg-blue-50 text-blue-700 font-medium':'text-slate-600 hover:bg-slate-50'">
+                        <span class="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" :class="c.status==='active'?'bg-emerald-400':'bg-slate-300'"></span>
+                        <span x-text="c.title"></span>
+                    </button>
+                    </template>
+                </div>
+            </div>
+            </template>
+        </nav>
+        <div class="p-2 border-t border-slate-100 space-y-1">
+            <button @click="page='new-client';sidebarOpen=false" class="w-full py-1.5 text-xs text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-600">+ 의뢰인</button>
+            <button @click="page='new-case';sidebarOpen=false" class="w-full py-1.5 text-xs text-slate-500 border border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:text-blue-600">+ 사건</button>
+        </div>
+    </aside>
+
+    <!-- ▌가운데: 메인 콘텐츠 ▌ -->
+    <main class="flex-1 lg:ml-60 lg:mr-72">
+        <!-- 헤더 -->
+        <header class="sticky top-0 z-40 bg-slate-50/95 backdrop-blur border-b border-slate-200 px-4 py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button @click="sidebarOpen=true" class="lg:hidden p-1.5 text-slate-500 hover:bg-slate-200 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <div class="text-sm text-slate-500">
+                    <span class="cursor-pointer hover:text-blue-600" @click="currentCase=null;page='home'">홈</span>
+                    <template x-if="currentCase">
+                        <span>
+                            <span class="text-slate-300 mx-1">/</span>
+                            <span class="text-slate-500" x-text="currentCase.client_id"></span>
+                            <span class="text-slate-300 mx-1">/</span>
+                            <span class="text-slate-700 font-medium" x-text="currentCase.title"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="dbSidebarOpen=true" class="lg:hidden p-1.5 text-slate-500 hover:bg-slate-200 rounded-lg" title="DB 현황">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                </button>
+                <button @click="openSyncModal()" class="px-3 py-1.5 text-xs bg-slate-700 text-white rounded-lg hover:bg-slate-800">동기화</button>
+            </div>
+        </header>
+
+        <div class="px-4 lg:px-6 py-5">
+
+        <!-- ── 홈 (사건 미선택) ── -->
+        <div x-show="!currentCase && page!=='new-client' && page!=='new-case'" class="fade-in">
+            <!-- 요약 카드 -->
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-blue-600" x-text="dashboard.summary?.active_cases||0"></div>
+                    <div class="text-xs text-slate-500 mt-1">활성 사건</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-slate-700" x-text="dashboard.summary?.total_clients||0"></div>
+                    <div class="text-xs text-slate-500 mt-1">의뢰인</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 shadow-sm text-center">
+                    <div class="text-2xl font-bold text-emerald-600" x-text="dashboard.summary?.total_evidence||0"></div>
+                    <div class="text-xs text-slate-500 mt-1">파일</div>
+                </div>
+            </div>
+            <p class="text-sm text-slate-400 text-center py-8">왼쪽에서 사건을 선택하세요</p>
+        </div>
+
+        <!-- ── 사건 상세 ── -->
+        <div x-show="currentCase" class="fade-in">
+        <template x-if="currentCase">
+        <div>
+            <!-- 사건 정보 바 -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800" x-text="currentCase.title"></h2>
+                        <div class="flex flex-wrap gap-2 mt-1.5 text-xs">
+                            <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full" x-text="currentCase.type"></span>
+                            <span class="text-emerald-600" x-show="currentCase.status==='active'">진행중</span>
+                            <span x-show="currentCase.case_number" class="text-slate-400" x-text="currentCase.case_number"></span>
+                            <span x-show="currentCase.court" class="text-slate-400" x-text="currentCase.court"></span>
+                            <span x-show="currentCase.opponent" class="text-slate-400" x-text="'vs ' + currentCase.opponent"></span>
+                        </div>
+                    </div>
+                    <button @click="editingCase=!editingCase" class="text-xs text-slate-400 hover:text-blue-600">편집</button>
+                </div>
+                <div x-show="editingCase" class="mt-4 pt-3 border-t border-slate-100 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs text-slate-500">사건번호</label><input x-model="caseEditData.case_number" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="text-xs text-slate-500">관할</label><input x-model="caseEditData.court" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="text-xs text-slate-500">상대방</label><input x-model="caseEditData.opponent" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+                        <div><label class="text-xs text-slate-500">상태</label>
+                            <select x-model="caseEditData.status" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm">
+                                <option value="active">진행중</option><option value="closed">종료</option><option value="pending">대기</option>
+                            </select></div>
+                    </div>
+                    <button @click="saveCase()" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">저장</button>
+                </div>
+            </div>
+
+            <!-- 파일 드롭존 -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div @dragover.prevent="fileDrag=true" @dragleave="fileDrag=false"
+                     @drop.prevent="dropFiles($event)"
+                     :class="fileDrag ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'"
+                     class="border-b-2 border-dashed p-10 text-center transition cursor-pointer"
+                     @click="$refs.fileInput.click()">
+                    <div x-show="!fileUploading">
+                        <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                        <p class="text-slate-500">파일을 드래그하거나 클릭</p>
+                        <p class="text-xs text-slate-400 mt-1">여러 파일 동시 가능</p>
+                    </div>
+                    <div x-show="fileUploading" class="py-2">
+                        <svg class="animate-spin w-8 h-8 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <p class="text-blue-600 font-medium" x-text="uploadStatus"></p>
+                    </div>
+                    <input type="file" x-ref="fileInput" @change="selectFiles($event)" multiple class="hidden">
+                </div>
+                <div class="divide-y divide-slate-100">
+                    <div x-show="caseFiles.length===0" class="py-8 text-center text-sm text-slate-400">아직 파일이 없습니다</div>
+                    <template x-for="f in caseFiles" :key="f.id">
+                    <div class="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="text-base flex-shrink-0" x-text="fileIcon(f.description||f.label)"></span>
+                            <span class="text-sm text-slate-800 truncate" x-text="f.description || f.label"></span>
+                        </div>
+                        <div class="flex items-center gap-3 flex-shrink-0 ml-2">
+                            <span class="text-xs text-slate-400" x-text="formatDate(f.created_at)"></span>
+                            <button @click="deleteFile(f)" class="text-slate-300 hover:text-red-500 transition" title="삭제">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        </template>
+        </div>
+
+        <!-- ── 신규 의뢰인 ── -->
+        <div x-show="page==='new-client'" class="fade-in">
+        <div class="bg-white rounded-xl shadow-sm p-5 max-w-lg">
+            <h2 class="text-base font-bold text-slate-800 mb-4">신규 의뢰인</h2>
+            <div class="space-y-3">
+                <div><label class="block text-sm text-slate-700 mb-1">이름 *</label>
+                    <input x-model="clientForm.name" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 박철수"></div>
+                <div><label class="block text-sm text-slate-700 mb-1">의뢰인 ID *</label>
+                    <input x-model="clientForm.client_id" class="w-full px-3 py-2 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="영문, 예: parkchulsu">
+                    <p class="text-xs text-slate-400 mt-1">영문 소문자 + 숫자 + 하이픈</p></div>
+                <div><label class="block text-sm text-slate-700 mb-1">연락처</label>
+                    <input x-model="clientForm.contact" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button @click="submitClient()" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">등록</button>
+                <button @click="page='home'" class="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200">취소</button>
+            </div>
+        </div>
+        </div>
+
+        <!-- ── 신규 사건 ── -->
+        <div x-show="page==='new-case'" class="fade-in">
+        <div class="bg-white rounded-xl shadow-sm p-5 max-w-lg">
+            <h2 class="text-base font-bold text-slate-800 mb-4">신규 사건</h2>
+            <div class="space-y-3">
+                <div><label class="block text-sm text-slate-700 mb-1">의뢰인 *</label>
+                    <select x-model="caseForm.client_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">선택</option>
+                        <template x-for="c in dashboard.clients" :key="c.client_id"><option :value="c.client_id" x-text="c.name"></option></template>
+                    </select></div>
+                <div><label class="block text-sm text-slate-700 mb-1">사건명 *</label>
+                    <input x-model="caseForm.title" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 대여금 반환"></div>
+                <div><label class="block text-sm text-slate-700 mb-1">사건 ID *</label>
+                    <input x-model="caseForm.case_slug" class="w-full px-3 py-2 border rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="영문, 예: loan-return"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-700 mb-1">유형</label>
+                        <select x-model="caseForm.type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="civil">민사</option><option value="criminal">형사</option>
+                            <option value="trademark">상표</option><option value="other">기타</option>
+                        </select></div>
+                    <div><label class="block text-sm text-slate-700 mb-1">사건번호</label>
+                        <input x-model="caseForm.case_number" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-sm text-slate-700 mb-1">관할</label>
+                        <input x-model="caseForm.court" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                    <div><label class="block text-sm text-slate-700 mb-1">상대방</label>
+                        <input x-model="caseForm.opponent" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button @click="submitCase()" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">등록</button>
+                <button @click="page='home'" class="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200">취소</button>
+            </div>
+        </div>
+        </div>
+
+        </div>
+    </main>
+
+    <!-- ▌오른쪽: DB 현황 (네비게이션 미러링) ▌ -->
+    <aside class="sidebar-right w-72 bg-white border-l border-slate-200 flex flex-col h-screen fixed top-0 right-0"
+           :class="dbSidebarOpen && 'open'">
+        <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-700">DB 현황</h2>
+            <button @click="dbSidebarOpen=false" class="lg:hidden p-1 text-slate-400 hover:text-slate-700">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto px-3 py-2">
+            <!-- 로딩 -->
+            <div x-show="!dbTree" class="text-xs text-slate-400 py-6 text-center">로딩 중...</div>
+
+            <!-- 트리 -->
+            <template x-for="cl in dbTree" :key="cl.client_id">
+            <div class="mb-2">
+                <!-- 의뢰인 헤더 -->
+                <div class="px-2 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide" x-text="cl.name"></div>
+
+                <template x-for="ca in cl.cases" :key="ca.case_slug">
+                <div class="mb-1.5">
+                    <!-- 사건 이름 + 요약 수치 -->
+                    <button @click="ca._open = !ca._open"
+                            class="w-full px-2 py-1.5 flex items-center justify-between rounded-lg text-xs hover:bg-slate-50 transition"
+                            :class="currentCase?.case_slug===ca.case_slug&&currentCase?.client_id===cl.client_id?'bg-blue-50 ring-1 ring-blue-200':''">
+                        <span class="text-slate-700 font-medium truncate" x-text="ca.title"></span>
+                        <span class="flex items-center gap-1.5 flex-shrink-0 ml-1">
+                            <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded text-xs" x-text="ca.raw_files + '파일'" x-show="ca.raw_files>0"></span>
+                            <span class="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-xs" x-text="ca.tables.length + '표'" x-show="ca.tables.length>0"></span>
+                        </span>
+                    </button>
+
+                    <!-- 사건 상세 (토글) -->
+                    <div x-show="ca._open" x-collapse class="ml-2 pl-2 border-l-2 border-slate-100">
+                        <!-- 수치 그리드 -->
+                        <div class="grid grid-cols-4 gap-1 py-1.5">
+                            <div class="text-center">
+                                <div class="text-sm font-bold text-slate-700" x-text="ca.raw_files||0"></div>
+                                <div class="text-xs text-slate-400 leading-tight">raw</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-bold text-slate-700" x-text="ca.pages||0"></div>
+                                <div class="text-xs text-slate-400 leading-tight">pages</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-bold text-slate-700" x-text="ca.ocr||0"></div>
+                                <div class="text-xs text-slate-400 leading-tight">OCR</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-bold text-slate-700" x-text="ca.tables.length||0"></div>
+                                <div class="text-xs text-slate-400 leading-tight">표</div>
+                            </div>
+                        </div>
+
+                        <!-- raw vs DB 불일치 -->
+                        <div x-show="ca.raw_files>0 && ca.raw_files!==ca.db_files"
+                             class="bg-amber-50 border border-amber-200 rounded px-2 py-1 text-xs text-amber-700 mb-1">
+                            raw <span x-text="ca.raw_files"></span> / DB <span x-text="ca.db_files"></span> 불일치
+                        </div>
+
+                        <!-- 테이블 목록 -->
+                        <template x-for="t in ca.tables" :key="t.table">
+                        <div class="py-1 border-b border-slate-50 last:border-0">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-mono text-slate-600 truncate" x-text="t.table" :title="t.table"></span>
+                                <span class="text-xs text-slate-400 flex-shrink-0 ml-1" x-text="(t.rows||0).toLocaleString()+'행'"></span>
+                            </div>
+                            <div class="text-xs text-slate-400 truncate" x-text="t.col_names?.join(', ')" :title="t.col_names?.join(', ')"></div>
+                        </div>
+                        </template>
+
+                        <!-- DB 파일명 -->
+                        <div x-show="ca.tables.length>0" class="text-xs text-slate-400 pt-1 truncate" x-text="ca.tables[0]?.db"></div>
+                        <div x-show="ca.tables.length===0 && ca.raw_files===0" class="text-xs text-slate-400 text-center py-1">데이터 없음</div>
+                    </div>
+                </div>
+                </template>
+            </div>
+            </template>
+        </div>
+    </aside>
+
+    <!-- Git Sync 모달 -->
+    <div x-show="syncModal" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" @click.self="syncModal=false" x-transition.opacity>
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Git 동기화</h3>
+            <div x-show="syncStatus" class="mb-4 p-3 bg-slate-50 rounded-lg text-sm" x-text="syncStatus?.clean?'변경사항 없음':(syncStatus?.changes||0)+'개 파일 변경됨'"></div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">커밋 메시지 *</label>
+                <input x-model="syncMessage" class="w-full px-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="예: 증거 추가">
+            </div>
+            <p x-show="syncError" class="text-red-500 text-sm mt-2" x-text="syncError"></p>
+            <p x-show="syncSuccess" class="text-emerald-600 text-sm mt-2" x-text="syncSuccess"></p>
+            <div class="flex gap-3 mt-5">
+                <button @click="doSync()" :disabled="syncing" class="flex-1 py-2.5 bg-slate-700 text-white rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50">
+                    <span x-show="!syncing">실행</span><span x-show="syncing">처리 중...</span>
+                </button>
+                <button @click="syncModal=false" class="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-lg text-sm hover:bg-slate-200">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 -->
+    <div x-show="toast.show" x-transition class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 rounded-xl shadow-lg text-sm font-medium max-w-sm"
+         :class="toast.type==='error'?'bg-red-600 text-white':'bg-emerald-600 text-white'"
+         x-text="toast.message"></div>
+</div>
+</template>
+
+<script>
+function app() {
+    return {
+        authenticated: false, loginToken: '', loginError: '', authToken: '',
+        page: 'home', sidebarOpen: false, dbSidebarOpen: false,
+        dashboard: { summary:{}, clients:[], cases:[] },
+        openClients: {}, selectedClient: null,
+        currentCase: null, caseFiles: [],
+        editingCase: false, caseEditData: {},
+        clientForm: { client_id:'', name:'', contact:'' },
+        caseForm: { client_id:'', case_slug:'', title:'', type:'civil', case_number:'', court:'', opponent:'' },
+        fileDrag: false, fileUploading: false, uploadStatus: '',
+        dbTree: null,
+        syncModal:false, syncStatus:null, syncMessage:'', syncError:'', syncSuccess:'', syncing:false,
+        toast: { show:false, message:'', type:'success' },
+
+        init() {
+            this.authToken = localStorage.getItem('claude_hub_token') || '';
+            if (this.authToken) { this.authenticated = true; this.loadDashboard(); this.loadDbTree(); }
+        },
+        async login() {
+            this.loginError = '';
+            try {
+                const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token:this.loginToken}) });
+                if (r.ok) { this.authToken = this.loginToken; localStorage.setItem('claude_hub_token', this.authToken); this.authenticated = true; this.loadDashboard(); this.loadDbTree(); }
+                else this.loginError = '토큰이 올바르지 않습니다.';
+            } catch(e) { this.loginError = '서버에 연결할 수 없습니다.'; }
+        },
+
+        async api(url, opts={}) {
+            const h = opts.headers || {};
+            if (this.authToken) h['Authorization'] = `Bearer ${this.authToken}`;
+            if (opts.body instanceof FormData) delete h['Content-Type'];
+            const r = await fetch(url, { ...opts, headers:h, credentials:'include' });
+            if (r.status===401) { this.authenticated=false; localStorage.removeItem('claude_hub_token'); throw new Error('인증 만료'); }
+            if (!r.ok) { const e = await r.json().catch(()=>({detail:'요청 실패'})); throw new Error(e.detail||'요청 실패'); }
+            return r.json();
+        },
+
+        // ── 데이터 로드 ──
+        async loadDashboard() {
+            try {
+                this.dashboard = await this.api('/api/dashboard');
+                if (!Object.keys(this.openClients).length) this.dashboard.clients.forEach(c => this.openClients[c.client_id]=true);
+            } catch(e) { this.showToast(e.message,'error'); }
+        },
+        async loadDbTree() {
+            try {
+                const r = await this.api('/api/db-status-all');
+                // _open 상태 초기화: 현재 선택된 사건이면 열기
+                r.tree.forEach(cl => cl.cases.forEach(ca => {
+                    ca._open = (this.currentCase?.case_slug===ca.case_slug && this.currentCase?.client_id===cl.client_id);
+                }));
+                this.dbTree = r.tree;
+            } catch(e) { this.dbTree = []; }
+        },
+
+        toggleClient(id) { this.openClients[id] = !this.openClients[id]; },
+        getCasesForClient(cid) { return (this.dashboard.cases||[]).filter(c=>c.client_id===cid); },
+
+        // ── 사건 ──
+        async openCase(c) {
+            try {
+                const d = await this.api(`/api/cases/${c.client_id}/${c.case_slug}`);
+                this.currentCase = d.case;
+                this.caseFiles = [...(d.evidence||[]), ...(d.documents||[]).map(doc=>({...doc, description: doc.title, file_type: doc.doc_type}))];
+                this.caseFiles.sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+                this.caseEditData = { case_number:d.case.case_number||'', court:d.case.court||'', opponent:d.case.opponent||'', status:d.case.status||'active' };
+                this.editingCase = false;
+                this.selectedClient = c.client_id;
+                this.page = 'case-detail';
+                window.scrollTo(0,0);
+                // DB 트리에서 현재 사건 펼치기
+                if (this.dbTree) {
+                    this.dbTree.forEach(cl => cl.cases.forEach(ca => {
+                        ca._open = (ca.case_slug===c.case_slug && cl.client_id===c.client_id);
+                    }));
+                }
+            } catch(e) { this.showToast(e.message,'error'); }
+        },
+        async saveCase() {
+            try {
+                await this.api(`/api/cases/${this.currentCase.client_id}/${this.currentCase.case_slug}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.caseEditData) });
+                Object.assign(this.currentCase, this.caseEditData);
+                this.editingCase = false;
+                this.showToast('저장 완료');
+            } catch(e) { this.showToast(e.message,'error'); }
+        },
+
+        // ── 파일 업로드 ──
+        async dropFiles(e) { this.fileDrag=false; await this.uploadFiles(Array.from(e.dataTransfer.files)); },
+        async selectFiles(e) { await this.uploadFiles(Array.from(e.target.files)); e.target.value=''; },
+        async uploadFiles(files) {
+            if (!files.length || !this.currentCase) return;
+            this.fileUploading = true;
+            const cid = this.currentCase.client_id, slug = this.currentCase.case_slug;
+            let ok=0, fail=0;
+            for (let i=0; i<files.length; i++) {
+                this.uploadStatus = `${i+1}/${files.length} 업로드 중... ${files[i].name}`;
+                try {
+                    const fd = new FormData();
+                    fd.append('file', files[i]);
+                    fd.append('label', files[i].name);
+                    fd.append('description', files[i].name);
+                    fd.append('submitted', '0');
+                    fd.append('notes', '');
+                    await this.api(`/api/evidence/${cid}/${slug}`, { method:'POST', body:fd });
+                    ok++;
+                } catch(e) { fail++; }
+            }
+            this.fileUploading = false;
+            this.uploadStatus = '';
+            if (ok) this.showToast(`${ok}개 파일 업로드 완료` + (fail?` (${fail}개 실패)`:''));
+            else this.showToast('업로드 실패','error');
+            await this.openCase(this.currentCase);
+            this.loadDbTree();
+        },
+        async deleteFile(f) {
+            if (!confirm(`"${f.description||f.label}" 삭제?`)) return;
+            try {
+                await this.api(`/api/evidence/${f.id}`, { method:'DELETE' });
+                this.caseFiles = this.caseFiles.filter(x=>x.id!==f.id);
+                this.showToast('삭제 완료');
+                this.loadDbTree();
+            } catch(e) { this.showToast(e.message,'error'); }
+        },
+
+        // ── 의뢰인·사건 등록 ──
+        async submitClient() {
+            if (!this.clientForm.client_id||!this.clientForm.name) { this.showToast('이름과 ID 필수','error'); return; }
+            try { await this.api('/api/clients', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.clientForm) }); this.showToast('의뢰인 등록 완료'); this.clientForm={client_id:'',name:'',contact:''}; this.page='home'; this.loadDashboard(); this.loadDbTree(); } catch(e) { this.showToast(e.message,'error'); }
+        },
+        async submitCase() {
+            if (!this.caseForm.client_id||!this.caseForm.case_slug||!this.caseForm.title) { this.showToast('의뢰인, 사건명, ID 필수','error'); return; }
+            try { await this.api('/api/cases', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(this.caseForm) }); this.showToast('사건 등록 완료'); this.caseForm={client_id:'',case_slug:'',title:'',type:'civil',case_number:'',court:'',opponent:''}; this.page='home'; this.loadDashboard(); this.loadDbTree(); } catch(e) { this.showToast(e.message,'error'); }
+        },
+
+        // ── 동기화 ──
+        async openSyncModal() { this.syncModal=true; this.syncError=''; this.syncSuccess=''; this.syncMessage=''; try { this.syncStatus = await this.api('/api/sync/status'); } catch(e) { this.syncStatus=null; } },
+        async doSync() {
+            if (!this.syncMessage.trim()) { this.syncError='커밋 메시지를 입력해주세요.'; return; }
+            this.syncing=true; this.syncError=''; this.syncSuccess='';
+            try { const r = await this.api('/api/sync', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:this.syncMessage}) }); this.syncSuccess = r.message||'완료'; } catch(e) { this.syncError=e.message; } finally { this.syncing=false; }
+        },
+
+        // ── 유틸 ──
+        fileIcon(name) {
+            const ext = (name||'').split('.').pop().toLowerCase();
+            if (ext==='pdf') return '📄'; if (['jpg','jpeg','png','gif','bmp','webp','heic'].includes(ext)) return '🖼️';
+            if (['xlsx','xls','csv'].includes(ext)) return '📊'; if (['docx','doc'].includes(ext)) return '📝';
+            if (['mp4','avi','mov','mkv'].includes(ext)) return '🎬'; return '📎';
+        },
+        formatDate(d) { if (!d) return ''; return d.substring(0,10); },
+        showToast(msg, type='success') { this.toast={show:true,message:msg,type}; setTimeout(()=>this.toast.show=false,3500); },
+    };
+}
+</script>
+</body>
+</html>

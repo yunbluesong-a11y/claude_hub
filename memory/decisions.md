@@ -18,9 +18,12 @@
 
 ## 구조 결정사항
 
-- 프로젝트별 폴더 분리: projects/{name}/summaries/, projects/{name}/index/
+- **의뢰인/사건 2계층**: projects/{client_id}/{case_slug}/ (2026-04-09 마이그레이션)
+- **단일 DB**: master.sqlite 하나에 메타+pages+OCR 통합 (3분할 안 함)
+- **사건ID 구분**: client_id + case_slug 두 컬럼 (슬래시 구분자 안 씀)
 - memory/ 파일은 세션 간 연속성 유지용 — 간결하게 유지 (각 100줄 이내)
 - sessions/ 에 세션 보고서 남김 — 다음 세션에서 맥락 이어받기용
+- outputs/ 폴더: 코워크 산출물 (소장, 고소장, 분석 엑셀 등) 별도 보관
 
 ## 교훈 (2026-04-08)
 
