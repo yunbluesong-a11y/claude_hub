@@ -166,8 +166,16 @@
                 </div>
             </div>
 
-            <!-- 파일 드롭존 -->
+            <!-- 스캔 + 파일 드롭존 -->
             <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <!-- raw 스캔 바 -->
+                <div class="flex items-center justify-between px-4 py-2 border-b border-slate-100 bg-slate-50/50">
+                    <span class="text-xs text-slate-500">raw/ 폴더에 직접 넣은 파일이 있으면 스캔으로 등록</span>
+                    <button @click="scanRaw()" :disabled="scanning"
+                            class="px-3 py-1 text-xs bg-slate-700 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50">
+                        <span x-show="!scanning">스캔</span><span x-show="scanning">스캔 중...</span>
+                    </button>
+                </div>
                 <div @dragover.prevent="fileDrag=true" @dragleave="fileDrag=false"
                      @drop.prevent="dropFiles($event)"
                      :class="fileDrag ? 'bg-blue-50 border-blue-400' : 'bg-slate-50 border-slate-200'"
@@ -384,7 +392,7 @@ function app() {
         editingCase: false, caseEditData: {},
         clientForm: { client_id:'', name:'', contact:'' },
         caseForm: { client_id:'', case_slug:'', title:'', type:'civil', case_number:'', court:'', opponent:'' },
-        fileDrag: false, fileUploading: false, uploadStatus: '',
+        fileDrag: false, fileUploading: false, uploadStatus: '', scanning: false,
         dbTree: null,
         syncModal:false, syncStatus:null, syncMessage:'', syncError:'', syncSuccess:'', syncing:false,
         toast: { show:false, message:'', type:'success' },
@@ -500,6 +508,18 @@ function app() {
             } catch(e) { this.showToast(e.message,'error'); }
         },
 
+        // ── raw 스캔 ──
+        async scanRaw() {
+            if (!this.currentCase) return;
+            this.scanning = true;
+            try {
+                const r = await this.api(`/api/scan/${this.currentCase.client_id}/${this.currentCase.case_slug}`, { method:'POST' });
+                this.showToast(r.message);
+                if (r.registered > 0) { await this.openCase(this.currentCase); this.loadDbTree(); }
+            } catch(e) { this.showToast(e.message, 'error'); }
+            finally { this.scanning = false; }
+        },
+
         // ── 의뢰인·사건 등록 ──
         async submitClient() {
             if (!this.clientForm.client_id||!this.clientForm.name) { this.showToast('이름과 ID 필수','error'); return; }
@@ -511,7 +531,7 @@ function app() {
         },
 
         // ── 동기화 ──
-        async openSyncModal() { this.syncModal=true; this.syncError=''; this.syncSuccess=''; this.syncMessage=''; try { this.syncStatus = await this.api('/api/sync/status'); } catch(e) { this.syncStatus=null; } },
+        async openSyncModal() { this.syncModal=true; this.syncError=''; this.syncSuccess=''; this.syncMessage=''; try { this.syncStatus = await this.api('/api/sync/status'); this.syncMessage = this.syncStatus?.last_message || ''; } catch(e) { this.syncStatus=null; } },
         async doSync() {
             if (!this.syncMessage.trim()) { this.syncError='커밋 메시지를 입력해주세요.'; return; }
             this.syncing=true; this.syncError=''; this.syncSuccess='';

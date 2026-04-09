@@ -242,6 +242,46 @@ def _get_case_db_info(client_id: str, case_slug: str):
     }
 
 
+@router.post("/scan/{client_id}/{case_slug}")
+def scan_raw_files(client_id: str, case_slug: str):
+    """raw/ 폴더를 스캔해서 evidence 테이블에 없는 파일을 일괄 등록"""
+    from webapp.services.file_manager import get_raw_files
+    from webapp.services.ingest import classify_file_type
+
+    raw_files = get_raw_files(client_id, case_slug)
+    if not raw_files:
+        return {"message": "raw 폴더에 파일이 없습니다.", "registered": 0}
+
+    registered = 0
+    with get_db() as conn:
+        # 사건 존재 확인
+        case = conn.execute("SELECT id FROM cases WHERE client_id=? AND case_slug=?", (client_id, case_slug)).fetchone()
+        if not case:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail=f"사건 '{client_id}/{case_slug}'을 찾을 수 없습니다.")
+
+        # 이미 등록된 파일명 목록
+        existing = set()
+        for row in conn.execute("SELECT description FROM evidence WHERE client_id=? AND case_slug=?", (client_id, case_slug)).fetchall():
+            existing.add(row[0])
+
+        for f in raw_files:
+            if f["name"] not in existing:
+                file_type = classify_file_type(f["name"])
+                conn.execute(
+                    """INSERT INTO evidence (client_id, case_slug, label, description, file_type, file_path, submitted, notes)
+                       VALUES (?,?,?,?,?,?,0,'스캔으로 자동 등록')""",
+                    (client_id, case_slug, f["name"], f["name"], file_type, f["path"])
+                )
+                registered += 1
+
+    return {
+        "message": f"{registered}개 파일 새로 등록" if registered else "새로 등록할 파일 없음 (이미 모두 등록됨)",
+        "registered": registered,
+        "total_raw": len(raw_files),
+    }
+
+
 @router.get("/db-status/{client_id}/{case_slug}")
 def db_status(client_id: str, case_slug: str):
     """사건별 DB 현황: 테이블 목록, 행 수, pages, raw 파일 수"""
