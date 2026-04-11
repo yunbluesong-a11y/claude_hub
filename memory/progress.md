@@ -4,39 +4,38 @@
 
 ## 현재 상태
 
-- 날짜: 2026-04-09
-- 상태: DB 구조 마이그레이션 완료 (v2 의뢰인/사건 계층 체계)
-- 마지막 작업: CLAUDE.md, 스크립트, master.sqlite 전면 개편
+- 날짜: 2026-04-12
+- 상태: jokim/to-prison 고소장 v4 완성 (3단계 자금세탁 구조 + 적요 병렬비교 + 압수수색)
+- 마지막 작업: 고소장 v4 docx 편집, 별지B recalc
 
 ## 진행 중인 작업
 
-- jokim/to-prison — 고소장 v3 완성(신동훈 피고소인3 추가), 추가 분석 가능
+- jokim/to-prison — 고소장 v4 완성, 제출 준비 단계
 - 새 의뢰인 사건 raw/ 파일 배치 대기
 
 ## 완료된 작업
 
 - [x] claude-hub 시스템 최초 구축
 - [x] GitHub 원격 연결 (yunbluesong-a11y/claude_hub)
-- [x] 은행 거래내역 4개 ingest (조대제/메인/김상균/송명욱)
-- [x] 수임금액명세서 2개 ingest
-- [x] 현금매출명세서 ingest
+- [x] 은행 거래내역 4개 ingest
+- [x] 수임금액명세서 2개 + 현금매출명세서 ingest
 - [x] 조대제·김상균 수임금액명세서 ↔ 계좌 교차대조
-- [x] jokim/to-prison 고소장 v1 → v2(보강) → v3(신동훈 추가)
-- [x] 범죄일람표 엑셀 (별지1~3 + 총괄)
-- [x] 자금흐름도 SVG
-- [x] **DB 구조 마이그레이션 (2026-04-09)**:
-  - 의뢰인→사건 2계층 디렉토리 구조 생성
-  - master.sqlite 단일 DB (clients, cases, evidence, documents, transactions_meta, pages, image_ocr)
-  - client_id + case_slug 분리 스키마
-  - legacy DB 보존 (db/legacy/jokim-to-prison.sqlite)
-  - 스크립트 v2: ingest.py, excel_to_sqlite.py, pdf_to_chunks.py, image_catalog.py
-  - 신규 스크립트: docx_to_summary.py, register_evidence.py
-  - CLAUDE.md 전면 개편 (라우팅 규칙, 데이터 접근 계층, 증거 관리)
+- [x] DB 구조 마이그레이션 (2026-04-09)
+- [x] jokim/to-prison 고소장 v1 → v2 → v3(신동훈) → **v4(3단계구조)**
+- [x] 범죄일람표 업데이트 → **340,043,884원** (유형4 ATM 추가)
+- [x] 별지A 1단계자금이동내역 (메인→관리 403M)
+- [x] **별지B 적요병렬비교표** (송명욱 정상 17/19 일치 vs 조대제·김상균 29건 장부 전무)
+- [x] **고소장 v4** 신규 내용:
+  - 3단계 자금세탁 구조 (1단계 403M → 2단계 340M → 3단계 장부조작)
+  - 적요 병렬비교 상세 서술 (별지B 참조)
+  - 압수수색 요청 3개 항목
+  - ATM 유형4 서술 + 피해금액표 반영
+  - 증거자료 7~9번 추가
 
 ## 다음 단계
 
-1. OneDrive 밖으로 repo 이동 (로컬 작업 — C:\dev\claude_hub 권장)
-2. 각 사건 raw/ 폴더에 원본 파일 배치 후 ingest 실행
-3. jokim/to-prison: 송명욱 수임금액명세서 ↔ 계좌 교차대조 (미실시)
+1. **git commit & push** (2026-04-12 작업분)
+2. 조대제 유형1 계좌별 breakdown 재검증 (15건 = 10+2+2+1?)
+3. 고소장 제출처 관할 확인 (송파경찰서 맞는지)
 4. yumyunggeun 사건들 분석 시작
-5. 기존 `projects/jokim to prison/`, `db/jokim to prison.sqlite` 정리 (마이그레이션 확인 후)
+5. 기존 legacy 폴더 정리
