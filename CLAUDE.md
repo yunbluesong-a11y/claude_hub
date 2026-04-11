@@ -86,7 +86,6 @@ VALUES ('newclient', 'case-name', '사건명', 'civil', 'active');
 
 | 의뢰인 | 사건 | 유형 | 상태 | DB |
 |--------|------|------|------|-----|
-| `jokim` | `to-prison` | criminal(횡령 고소) | active | `db/legacy/jokim-to-prison.sqlite` |
 | `yumyunggeun` | `honor-defamation` | criminal(명예훼손) | active | (ingest 대기) |
 | `yumyunggeun` | `danggeun-youtube` | criminal(당근·유튜브) | active | (ingest 대기) |
 | `yumyunggeun` | `counterclaim` | civil(반소 손해배상) | active | (ingest 대기) |
@@ -108,20 +107,6 @@ VALUES ('newclient', 'case-name', '사건명', 'civil', 'active');
 | `pages` | PDF/docx 페이지별 텍스트 (전문 검색용) |
 | `image_ocr` | 이미지 OCR 결과 |
 
-### jokim/to-prison (legacy DB: `db/legacy/jokim-to-prison.sqlite`)
-
-> ⚠️ 기존 분석 진행중 — 마이그레이션 전까지 legacy DB 사용
-
-| 테이블명 | 내용 | 원본 |
-|---------|------|------|
-| `acct_22991001751404` | 조대제 계좌 입출금 | 22991001751404_조대제_입출금내역_404.xlsx |
-| `acct_22991001907204` | 메인계좌 입출금 | 22991001907204_메인계좌_입출금_204.xlsx |
-| `acct_22991001951104` | 김상균 계좌 입출금 | 22991001951104_김상균_입출금내역_104.xlsx |
-| `acct_22991002022504` | 송명욱 계좌 입출금 | 22991002022504_송명욱_입출금내역_504.xlsx |
-| `fee_statement_조대제_김상균` | 수임금액명세서 (조대제+김상균) | 수임금액명세서_조대제+김상균.xlsx |
-| `fee_statement_송명욱` | 수임금액명세서 (송명욱) | 수임금액명세서_송명욱.xlsx |
-| `cash_sales_statement` | 현금매출명세서 9기간 | 현금매출명세서_태율법인전체.xlsx |
-
 ### 거래내역 DB 규칙 (새 사건)
 
 새 사건의 엑셀 데이터는 `db/{client_id}_{case_slug}.sqlite`에 저장된다.
@@ -135,9 +120,7 @@ claude_hub/
 │
 ├── db/
 │   ├── master.sqlite              ← 의뢰인·사건·증거 메타데이터 + pages + OCR
-│   ├── {client}_{case}.sqlite     ← 사건별 거래내역 (엑셀 기반)
-│   └── legacy/
-│       └── jokim-to-prison.sqlite ← 기존 DB (마이그레이션 전까지 유지)
+│   └── {client}_{case}.sqlite     ← 사건별 거래내역 (엑셀 기반)
 │
 ├── memory/
 │   ├── progress.md
